@@ -32,7 +32,7 @@
             <div class="card-body p-0">
                 <div class="list-group list-group-flush">
                     {% for menu in menu_files %}
-                    <a href="#" class="list-group-item list-group-item-action" onclick="viewMenu('{{ menu }}'); return false;">
+                    <div class="list-group-item">
                         <div class="row align-items-center">
                             <div class="col-auto">
                                 <span class="avatar bg-primary-lt">
@@ -46,10 +46,20 @@
                                 </div>
                             </div>
                             <div class="col-auto">
-                                <span class="badge bg-azure-lt">iPXE</span>
+                                <span class="badge bg-azure-lt me-2">iPXE</span>
+                            </div>
+                            <div class="col-auto">
+                                <div class="btn-list">
+                                    <button class="btn btn-sm btn-icon btn-primary" onclick="viewMenu('{{ menu }}')" title="Preview">
+                                        <i class="ti ti-eye"></i>
+                                    </button>
+                                    <a href="{{ url_for('edit_menu', filename=menu) }}" class="btn btn-sm btn-icon btn-warning" title="Edit">
+                                        <i class="ti ti-edit"></i>
+                                    </a>
+                                </div>
                             </div>
                         </div>
-                    </a>
+                    </div>
                     {% endfor %}
                 </div>
             </div>

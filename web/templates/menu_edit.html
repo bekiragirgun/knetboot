@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Edit iPXE Menu - {{ filename }} - Kapadokya NetBoot{% endblock %}
+
+{% block page_title %}
+    <i class="ti ti-edit me-2"></i>Edit iPXE Menu
+{% endblock %}
+
+{% block page_subtitle %}
+    <div class="page-pretitle">
+        <code>{{ filename }}</code>
+    </div>
+{% endblock %}
+
+{% block page_actions %}
+<div class="col-auto ms-auto d-print-none">
+    <div class="btn-list">
+        <button class="btn btn-outline-secondary" onclick="window.history.back()">
+            <i class="ti ti-arrow-left me-2"></i>
+            Back
+        </button>
+        <button class="btn btn-success" onclick="saveMenu()">
+            <i class="ti ti-device-floppy me-2"></i>
+            Save Changes
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="row row-deck row-cards">
+    <!-- Editor Mode Tabs -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" data-bs-toggle="tabs">
+                    <li class="nav-item">
+                        <a href="#tabs-editor" class="nav-link active" data-bs-toggle="tab">
+                            <i class="ti ti-code me-2"></i>
+                            Advanced Editor
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#tabs-form" class="nav-link" data-bs-toggle="tab">
+                            <i class="ti ti-forms me-2"></i>
+                            Simple Editor
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="#tabs-preview" class="nav-link" data-bs-toggle="tab">
+                            <i class="ti ti-eye me-2"></i>
+                            Preview
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    <!-- Advanced Editor Tab (Monaco) -->
+                    <div class="tab-pane active show" id="tabs-editor">
+                        <div class="mb-3">
+                            <div class="alert alert-info">
+                                <i class="ti ti-info-circle me-2"></i>
+                                <strong>Tip:</strong> Press <kbd>Ctrl+S</kbd> to save, <kbd>Ctrl+F</kbd> to find, <kbd>Ctrl+H</kbd> to replace
+                            </div>
+                        </div>
+                        <div id="monaco-editor" style="height: 600px; border: 1px solid #dee2e6;"></div>
+                    </div>
+
+                    <!-- Simple Form Editor Tab -->
+                    <div class="tab-pane" id="tabs-form">
+                        <div class="alert alert-warning">
+                            <i class="ti ti-alert-triangle me-2"></i>
+                            <strong>Coming Soon:</strong> Form-based editor is under development. Use Advanced Editor for now.
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Menu Title</label>
+                            <input type="text" class="form-control" id="form-menu-title" placeholder="e.g., Main Menu">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Menu Items</label>
+                            <div id="form-menu-items">
+                                <!-- Dynamic form items will be added here -->
+                            </div>
+                            <button class="btn btn-outline-primary mt-2" onclick="addMenuItem()">
+                                <i class="ti ti-plus me-2"></i>
+                                Add Menu Item
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Preview Tab -->
+                    <div class="tab-pane" id="tabs-preview">
+                        <div class="mb-3">
+                            <button class="btn btn-primary" onclick="refreshPreview()">
+                                <i class="ti ti-refresh me-2"></i>
+                                Refresh Preview
+                            </button>
+                        </div>
+                        <pre id="preview-content" class="bg-dark text-white p-3" style="height: 600px; overflow-y: auto;"><code>{{ content }}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help & Documentation -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="ti ti-help me-2"></i>
+                    iPXE Script Reference
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h4>Common Commands</h4>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr><td><code>menu</code></td><td>Define menu title</td></tr>
+                                <tr><td><code>item</code></td><td>Add menu item</td></tr>
+                                <tr><td><code>choose</code></td><td>Wait for user selection</td></tr>
+                                <tr><td><code>goto</code></td><td>Jump to label</td></tr>
+                                <tr><td><code>chain</code></td><td>Load another script</td></tr>
+                                <tr><td><code>kernel</code></td><td>Load kernel</td></tr>
+                                <tr><td><code>initrd</code></td><td>Load initrd</td></tr>
+                                <tr><td><code>boot</code></td><td>Boot loaded image</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h4>Example Structure</h4>
+                        <pre class="bg-light p-2"><code>#!ipxe
+
+:main_menu
+menu Main Menu
+item --gap -- Options:
+item option1 Option 1
+item option2 Option 2
+choose selected && goto ${selected}
+
+:option1
+echo Selected option 1
+boot
+
+:option2
+echo Selected option 2
+boot</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Monaco Editor -->
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+<script>
+let editor;
+const filename = '{{ filename }}';
+const originalContent = {{ content|tojson|safe }};
+
+// Initialize Monaco Editor
+require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' }});
+
+require(['vs/editor/editor.main'], function() {
+    // Register iPXE language (basic syntax highlighting)
+    monaco.languages.register({ id: 'ipxe' });
+    monaco.languages.setMonarchTokensProvider('ipxe', {
+        tokenizer: {
+            root: [
+                [/#.*$/, 'comment'],
+                [/:[a-zA-Z_]\w*/, 'type.identifier'],
+                [/\b(menu|item|choose|goto|chain|kernel|initrd|boot|echo|set|isset|sanboot|reboot|shell|sleep)\b/, 'keyword'],
+                [/\$\{[^}]+\}/, 'variable'],
+                [/".*?"/, 'string'],
+                [/--\w+/, 'attribute']
+            ]
+        }
+    });
+
+    // Create editor
+    editor = monaco.editor.create(document.getElementById('monaco-editor'), {
+        value: originalContent,
+        language: 'ipxe',
+        theme: 'vs-dark',
+        automaticLayout: true,
+        fontSize: 14,
+        minimap: { enabled: true },
+        scrollBeyondLastLine: false,
+        wordWrap: 'on'
+    });
+
+    // Ctrl+S to save
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function() {
+        saveMenu();
+    });
+
+    // Track changes
+    editor.onDidChangeModelContent(function() {
+        const hasChanges = editor.getValue() !== originalContent;
+        if (hasChanges) {
+            document.title = '● ' + filename + ' - Kapadokya NetBoot';
+        } else {
+            document.title = filename + ' - Kapadokya NetBoot';
+        }
+    });
+});
+
+// Save menu
+function saveMenu() {
+    const content = editor.getValue();
+
+    if (content.trim() === '') {
+        showToast('Cannot save empty file', 'error');
+        return;
+    }
+
+    // Basic validation
+    if (!content.includes('#!ipxe')) {
+        if (!confirm('File does not start with #!ipxe shebang. Continue anyway?')) {
+            return;
+        }
+    }
+
+    showLoading('Saving changes...');
+
+    fetch('/api/menus/edit/' + filename, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ content: content })
+    })
+    .then(response => response.json())
+    .then(data => {
+        hideLoading();
+        if (data.success) {
+            showToast('Menu saved successfully!', 'success');
+            document.title = filename + ' - Kapadokya NetBoot';
+            // Update original content
+            originalContent = content;
+        } else {
+            showToast('Error: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        hideLoading();
+        showToast('Error: ' + error, 'error');
+    });
+}
+
+// Refresh preview
+function refreshPreview() {
+    const content = editor.getValue();
+    document.getElementById('preview-content').textContent = content;
+    showToast('Preview refreshed', 'info');
+}
+
+// Warn before leaving with unsaved changes
+window.addEventListener('beforeunload', function(e) {
+    if (editor && editor.getValue() !== originalContent) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+    }
+});
+
+// Form editor placeholder functions
+function addMenuItem() {
+    showToast('Form editor coming soon!', 'info');
+}
+</script>
+{% endblock %}

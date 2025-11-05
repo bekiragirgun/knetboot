@@ -548,6 +548,30 @@ def menus_page():
         menu_files = [f.name for f in menus_dir.glob('*.ipxe')]
     return render_template('menus.html', menu_files=menu_files)
 
+@app.route('/menus/edit/<filename>')
+def edit_menu(filename):
+    """Edit iPXE menu file"""
+    # Security: Only allow .ipxe files
+    if not filename.endswith('.ipxe'):
+        return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+
+    # Security: Prevent path traversal
+    if '..' in filename or '/' in filename:
+        return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+
+    menus_dir = CONFIG_DIR / 'menus'
+    file_path = menus_dir / filename
+
+    if not file_path.exists():
+        return jsonify({'success': False, 'error': 'File not found'}), 404
+
+    try:
+        with open(file_path, 'r') as f:
+            content = f.read()
+        return render_template('menu_edit.html', filename=filename, content=content)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/dhcp')
 def dhcp_config_page():
     """DHCP Configuration page"""
@@ -960,6 +984,45 @@ def api_image_delete(image_id):
     images = [i for i in images if i['id'] != image_id]
     save_images(images)
     return jsonify({'success': True})
+
+@app.route('/api/menus/edit/<filename>', methods=['POST'])
+def api_menu_save(filename):
+    """API: Save iPXE menu file"""
+    # Security: Only allow .ipxe files
+    if not filename.endswith('.ipxe'):
+        return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+
+    # Security: Prevent path traversal
+    if '..' in filename or '/' in filename:
+        return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+
+    menus_dir = CONFIG_DIR / 'menus'
+    file_path = menus_dir / filename
+
+    try:
+        data = request.get_json()
+        content = data.get('content', '')
+
+        if not content.strip():
+            return jsonify({'success': False, 'error': 'Content cannot be empty'}), 400
+
+        # Create backup before saving
+        if file_path.exists():
+            backup_path = file_path.with_suffix('.ipxe.bak')
+            import shutil
+            shutil.copy2(file_path, backup_path)
+
+        # Save new content
+        with open(file_path, 'w') as f:
+            f.write(content)
+
+        return jsonify({
+            'success': True,
+            'message': f'{filename} saved successfully',
+            'backup_created': file_path.exists()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/menus/regenerate', methods=['POST'])
 def api_menus_regenerate():
