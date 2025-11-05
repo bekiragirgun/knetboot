@@ -105,20 +105,64 @@ def load_settings():
     return system_config
 
 def get_disk_usage():
-    """Get disk usage of assets directory"""
+    """Get disk usage using df -h for root filesystem"""
     try:
+        # Get disk usage of root filesystem (where everything is stored)
         result = subprocess.run(
-            ['du', '-sb', str(ASSETS_DIR)],
+            ['df', '-h', '/'],
             capture_output=True,
-            text=True
+            text=True,
+            timeout=5
         )
         if result.returncode == 0:
-            bytes_used = int(result.stdout.split()[0])
-            gb_used = bytes_used / (1024**3)
-            return f"{gb_used:.2f} GB"
-        return "Unknown"
-    except:
-        return "Unknown"
+            lines = result.stdout.strip().split('\n')
+            if len(lines) > 1:
+                # Parse output: Filesystem Size Used Avail Use% Mounted
+                parts = lines[1].split()
+                if len(parts) >= 5:
+                    size = parts[1]      # e.g., "100G"
+                    used = parts[2]      # e.g., "45G"
+                    avail = parts[3]     # e.g., "55G"
+                    percent = parts[4]   # e.g., "45%"
+
+                    # Convert to float (handle G, M, T suffixes)
+                    def parse_size(s):
+                        s = s.upper()
+                        if 'T' in s:
+                            return float(s.replace('T', '')) * 1024
+                        elif 'G' in s:
+                            return float(s.replace('G', ''))
+                        elif 'M' in s:
+                            return float(s.replace('M', '')) / 1024
+                        else:
+                            return 0
+
+                    return {
+                        'size': size,
+                        'used': used,
+                        'available': avail,
+                        'percent': percent,
+                        'used_gb': parse_size(used),
+                        'total_gb': parse_size(size)
+                    }
+        return {
+            'size': 'Unknown',
+            'used': 'Unknown',
+            'available': 'Unknown',
+            'percent': '0%',
+            'used_gb': 0,
+            'total_gb': 100
+        }
+    except Exception as e:
+        print(f"Error getting disk usage: {e}")
+        return {
+            'size': 'Unknown',
+            'used': 'Unknown',
+            'available': 'Unknown',
+            'percent': '0%',
+            'used_gb': 0,
+            'total_gb': 100
+        }
 
 def get_service_status(service):
     """Check if systemd service is active"""
@@ -250,11 +294,109 @@ subnet {config['network']} netmask {config['netmask']} {{
     except Exception as e:
         return False, f"Error writing config: {str(e)}"
 
+def get_boot_statistics():
+    """
+    Parse DHCP leases and TFTP logs to get boot statistics
+    Returns: dict with boot stats
+    """
+    stats = {
+        'total_boots_today': 0,
+        'successful_boots': 0,
+        'failed_boots': 0,
+        'active_leases': 0,
+        'success_rate': 0,
+        'most_used_image': 'N/A'
+    }
+
+    try:
+        # Parse DHCP leases for active clients
+        dhcp_leases_path = '/var/lib/dhcp/dhcpd.leases'
+        if os.path.exists(dhcp_leases_path):
+            result = subprocess.run(
+                ['sudo', 'cat', dhcp_leases_path],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                # Count active leases (simple count of "lease" entries)
+                stats['active_leases'] = result.stdout.count('lease ')
+
+        # Parse TFTP logs for boot attempts (last 24 hours)
+        tftp_log_result = subprocess.run(
+            ['sudo', 'journalctl', '-u', 'tftpd-hpa', '--since', 'today', '--no-pager'],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if tftp_log_result.returncode == 0:
+            log_lines = tftp_log_result.stdout.split('\n')
+
+            # Count RRQ (Read Request) as boot attempts
+            boot_attempts = [line for line in log_lines if 'RRQ' in line or 'sent' in line.lower()]
+            stats['total_boots_today'] = len(boot_attempts)
+
+            # Count successful transfers (files sent successfully)
+            successful = [line for line in log_lines if 'sent' in line.lower() and ('kpxe' in line.lower() or 'efi' in line.lower())]
+            stats['successful_boots'] = len(successful)
+
+            # Calculate failed boots
+            stats['failed_boots'] = max(0, stats['total_boots_today'] - stats['successful_boots'])
+
+            # Calculate success rate
+            if stats['total_boots_today'] > 0:
+                stats['success_rate'] = int((stats['successful_boots'] / stats['total_boots_today']) * 100)
+            else:
+                stats['success_rate'] = 0
+
+            # Find most requested file (most used image)
+            file_requests = {}
+            for line in log_lines:
+                if 'RRQ' in line:
+                    # Extract filename from log
+                    match = re.search(r'RRQ.*?([a-zA-Z0-9_\-\.]+\.(kpxe|efi|ipxe))', line)
+                    if match:
+                        filename = match.group(1)
+                        file_requests[filename] = file_requests.get(filename, 0) + 1
+
+            if file_requests:
+                most_used = max(file_requests, key=file_requests.get)
+                stats['most_used_image'] = most_used
+
+    except subprocess.TimeoutExpired:
+        print("Timeout while fetching boot statistics")
+    except Exception as e:
+        print(f"Error getting boot statistics: {e}")
+
+    return stats
+
+def get_system_uptime():
+    """Get system uptime in human-readable format"""
+    try:
+        result = subprocess.run(
+            ['uptime', '-p'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if result.returncode == 0:
+            # Remove "up " prefix
+            uptime = result.stdout.strip().replace('up ', '')
+            return uptime
+        return "Unknown"
+    except:
+        return "Unknown"
+
 @app.route('/')
 def index():
     """Dashboard"""
     images = load_images()
     settings = load_settings()
+
+    # Get boot statistics from logs
+    boot_stats = get_boot_statistics()
+    uptime = get_system_uptime()
 
     stats = {
         'total_images': len(images),
@@ -265,7 +407,15 @@ def index():
             'tftp': get_service_status('tftpd-hpa'),
             'nginx': get_service_status('nginx'),
             'web': get_service_status('knetboot-web')
-        }
+        },
+        # Boot statistics
+        'boots_today': boot_stats['total_boots_today'],
+        'successful_boots': boot_stats['successful_boots'],
+        'failed_boots': boot_stats['failed_boots'],
+        'boot_success_rate': boot_stats['success_rate'],
+        'active_clients': boot_stats['active_leases'],
+        'most_used_image': boot_stats['most_used_image'],
+        'uptime': uptime
     }
 
     return render_template('dashboard.html', stats=stats, settings=settings)

@@ -2,81 +2,152 @@
 
 {% block title %}Dashboard - Kapadokya NetBoot{% endblock %}
 
+{% block page_title %}
+    <i class="ti ti-dashboard me-2"></i>Dashboard
+{% endblock %}
+
+{% block page_subtitle %}
+    <div class="page-pretitle">
+        Welcome to Kapadokya NetBoot Management Console
+    </div>
+{% endblock %}
+
 {% block content %}
-<h1><i class="bi bi-speedometer2"></i> Dashboard</h1>
-<hr>
-
-<div class="row">
-    <!-- Statistics Cards -->
-    <div class="col-md-3 mb-4">
-        <div class="card">
+<!-- Statistics Row -->
+<div class="row row-deck row-cards mb-3">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-disc"></i> Total Images</h5>
-                <h2 class="card-text">{{ stats.total_images }}</h2>
-                <small class="text-muted">{{ stats.enabled_images }} enabled</small>
+                <div class="d-flex align-items-center">
+                    <div class="subheader">Total Images</div>
+                </div>
+                <div class="h1 mb-3">{{ stats.total_images }}</div>
+                <div class="d-flex mb-2">
+                    <div class="stat-label">{{ stats.enabled_images }} enabled</div>
+                </div>
+                <div class="progress progress-sm">
+                    <div class="progress-bar bg-primary" style="width: {% if stats.total_images > 0 %}{{ (stats.enabled_images / stats.total_images * 100)|int }}{% else %}0{% endif %}%" role="progressbar"></div>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="col-md-3 mb-4">
-        <div class="card">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-hdd"></i> Disk Usage</h5>
-                <h2 class="card-text">{{ stats.disk_usage }}</h2>
-                <small class="text-muted">Assets directory</small>
+                <div class="d-flex align-items-center">
+                    <div class="subheader">Disk Usage</div>
+                </div>
+                <div class="h1 mb-3">{{ stats.disk_usage.percent }}</div>
+                <div class="stat-label">{{ stats.disk_usage.used }} / {{ stats.disk_usage.size }}</div>
             </div>
         </div>
     </div>
 
-    <div class="col-md-6 mb-4">
-        <div class="card">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-server"></i> Services Status</h5>
-                <div class="list-group list-group-flush">
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        DHCP Server
-                        <span class="d-flex align-items-center">
-                            <span class="me-3">
-                                <span class="service-status {% if stats.services.dhcp %}service-active{% else %}service-inactive{% endif %}"></span>
-                                <span id="dhcpStatusText">{% if stats.services.dhcp %}Active{% else %}Inactive{% endif %}</span>
-                            </span>
-                            <label class="switch-small mb-0">
-                                <input type="checkbox" id="dhcpToggle" {% if stats.services.dhcp %}checked{% endif %} onchange="toggleDHCP(this)">
-                                <span class="slider-small"></span>
-                            </label>
-                        </span>
+                <div class="d-flex align-items-center">
+                    <div class="subheader">Active Services</div>
+                </div>
+                <div class="h1 mb-3">
+                    {{ [stats.services.dhcp, stats.services.tftp, stats.services.nginx, stats.services.web]|select|list|length }}/4
+                </div>
+                <div class="stat-label">System services running</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="subheader">Server Status</div>
+                </div>
+                <div class="h1 mb-3">
+                    {% if stats.services.dhcp and stats.services.tftp and stats.services.nginx %}
+                        <span class="text-green">Online</span>
+                    {% else %}
+                        <span class="text-red">Degraded</span>
+                    {% endif %}
+                </div>
+                <div class="stat-label">{{ settings.server.ip }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts & Statistics Row -->
+<div class="row row-deck row-cards mb-3">
+    <!-- Disk Usage Chart -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="ti ti-chart-pie me-2"></i>
+                    Disk Usage Overview
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="diskUsageChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boot Statistics (replacing Service Status chart) -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="ti ti-activity me-2"></i>
+                    Boot Statistics (Today)
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- Total Boots Today -->
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h1 mb-2 text-primary">{{ stats.boots_today }}</div>
+                            <div class="text-secondary">Total Boots</div>
+                        </div>
                     </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        TFTP Server
-                        <span class="d-flex align-items-center">
-                            <span class="me-3">
-                                <span class="service-status {% if stats.services.tftp %}service-active{% else %}service-inactive{% endif %}"></span>
-                                <span id="tftpStatusText">{% if stats.services.tftp %}Active{% else %}Inactive{% endif %}</span>
-                            </span>
-                            <label class="switch-small mb-0">
-                                <input type="checkbox" id="tftpToggle" {% if stats.services.tftp %}checked{% endif %} onchange="toggleTFTP(this)">
-                                <span class="slider-small"></span>
-                            </label>
-                        </span>
+
+                    <!-- Success Rate -->
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h1 mb-2 {% if stats.boot_success_rate >= 80 %}text-success{% elif stats.boot_success_rate >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ stats.boot_success_rate }}%
+                            </div>
+                            <div class="text-secondary">Success Rate</div>
+                        </div>
                     </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        NGINX (HTTP)
-                        <span class="d-flex align-items-center">
-                            <span class="me-3">
-                                <span class="service-status {% if stats.services.nginx %}service-active{% else %}service-inactive{% endif %}"></span>
-                                <span id="nginxStatusText">{% if stats.services.nginx %}Active{% else %}Inactive{% endif %}</span>
-                            </span>
-                            <button class="btn btn-sm btn-warning" onclick="restartNGINX()" title="Restart NGINX">
-                                <i class="bi bi-arrow-clockwise"></i>
-                            </button>
-                        </span>
+
+                    <!-- Active Clients -->
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="h1 mb-2 text-info">{{ stats.active_clients }}</div>
+                            <div class="text-secondary">Active Leases</div>
+                        </div>
                     </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                        Web UI
-                        <span>
-                            <span class="service-status {% if stats.services.web %}service-active{% else %}service-inactive{% endif %}"></span>
-                            {% if stats.services.web %}Active{% else %}Inactive{% endif %}
-                        </span>
+
+                    <!-- Most Used Image -->
+                    <div class="col-6">
+                        <div class="text-center">
+                            <div class="text-truncate mb-2">
+                                <code class="small">{{ stats.most_used_image }}</code>
+                            </div>
+                            <div class="text-secondary">Most Used</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3 pt-3 border-top">
+                    <div class="d-flex justify-content-between text-secondary">
+                        <span><i class="ti ti-check me-1"></i>Successful: {{ stats.successful_boots }}</span>
+                        <span><i class="ti ti-x me-1"></i>Failed: {{ stats.failed_boots }}</span>
                     </div>
                 </div>
             </div>
@@ -84,256 +155,253 @@
     </div>
 </div>
 
-<!-- Server Info -->
-<div class="row">
-    <div class="col-md-12 mb-4">
+<!-- Services Control -->
+<div class="row row-deck row-cards mb-3">
+    <div class="col-12">
         <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="ti ti-server me-2"></i>
+                    Services Management
+                </h3>
+            </div>
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-info-circle"></i> Server Information</h5>
-                <table class="table table-sm">
-                    <tr>
-                        <th>Server IP:</th>
-                        <td>{{ settings.server.ip }}</td>
-                    </tr>
-                    <tr>
-                        <th>Server Name:</th>
-                        <td>{{ settings.server.name }}</td>
-                    </tr>
-                    <tr>
-                        <th>Network:</th>
-                        <td>{{ settings.network.subnet }}</td>
-                    </tr>
-                    <tr>
-                        <th>DHCP Range:</th>
-                        <td>{{ settings.network.dhcp_start }} - {{ settings.network.dhcp_end }}</td>
-                    </tr>
-                    <tr>
-                        <th>Boot URL:</th>
-                        <td><code>http://{{ settings.server.ip }}/knetboot/boot.ipxe</code></td>
-                    </tr>
-                </table>
+                <div class="row g-3">
+                    <!-- DHCP Service -->
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card service-card" data-service="dhcp">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <div>
+                                        <h3 class="card-title mb-1">DHCP Server</h3>
+                                        <div class="text-secondary">
+                                            <span class="status-indicator {% if stats.services.dhcp %}active{% else %}inactive{% endif %}"></span>
+                                            <span class="status-text">{% if stats.services.dhcp %}Active{% else %}Inactive{% endif %}</span>
+                                        </div>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox"
+                                               {% if stats.services.dhcp %}checked{% endif %}
+                                               onchange="toggleService('dhcp', this)">
+                                    </div>
+                                </div>
+                                <div class="text-secondary small">
+                                    IP allocation and PXE boot configuration
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TFTP Service -->
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card service-card" data-service="tftp">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <div>
+                                        <h3 class="card-title mb-1">TFTP Server</h3>
+                                        <div class="text-secondary">
+                                            <span class="status-indicator {% if stats.services.tftp %}active{% else %}inactive{% endif %}"></span>
+                                            <span class="status-text">{% if stats.services.tftp %}Active{% else %}Inactive{% endif %}</span>
+                                        </div>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox"
+                                               {% if stats.services.tftp %}checked{% endif %}
+                                               onchange="toggleService('tftp', this)">
+                                    </div>
+                                </div>
+                                <div class="text-secondary small">
+                                    Boot file delivery via TFTP protocol
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NGINX Service -->
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card service-card" data-service="nginx">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <div>
+                                        <h3 class="card-title mb-1">NGINX</h3>
+                                        <div class="text-secondary">
+                                            <span class="status-indicator {% if stats.services.nginx %}active{% else %}inactive{% endif %}"></span>
+                                            <span class="status-text">{% if stats.services.nginx %}Active{% else %}Inactive{% endif %}</span>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-warning" onclick="restartNGINX(this)" title="Restart NGINX">
+                                        <i class="ti ti-reload"></i>
+                                    </button>
+                                </div>
+                                <div class="text-secondary small">
+                                    HTTP server for boot files and UI
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Web UI Service -->
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card service-card" data-service="web">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                    <div>
+                                        <h3 class="card-title mb-1">Web UI</h3>
+                                        <div class="text-secondary">
+                                            <span class="status-indicator {% if stats.services.web %}active{% else %}inactive{% endif %}"></span>
+                                            <span class="status-text">{% if stats.services.web %}Active{% else %}Inactive{% endif %}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-secondary small">
+                                    Admin panel (Flask + Gunicorn)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Quick Actions -->
-<div class="row">
-    <div class="col-md-12">
+<!-- Server Information & Quick Actions -->
+<div class="row row-deck row-cards">
+    <div class="col-md-6">
         <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="ti ti-info-circle me-2"></i>
+                    Server Information
+                </h3>
+            </div>
             <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-lightning"></i> Quick Actions</h5>
-                <a href="{{ url_for('images_list') }}" class="btn btn-primary me-2">
-                    <i class="bi bi-plus-circle"></i> Add Image
-                </a>
-                <button class="btn btn-success me-2" onclick="regenerateMenus()">
-                    <i class="bi bi-arrow-clockwise"></i> Regenerate Menus
-                </button>
-                <a href="{{ url_for('menus_page') }}" class="btn btn-info me-2">
-                    <i class="bi bi-list-ul"></i> View Menus
-                </a>
-                <a href="{{ url_for('dhcp_config_page') }}" class="btn btn-warning">
-                    <i class="bi bi-gear"></i> DHCP Configuration
-                </a>
+                <div class="datagrid">
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Server IP</div>
+                        <div class="datagrid-content">
+                            <code>{{ settings.server.ip }}</code>
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Server Name</div>
+                        <div class="datagrid-content">{{ settings.server.name }}</div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Network</div>
+                        <div class="datagrid-content">
+                            <code>{{ settings.network.subnet }}</code>
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">DHCP Range</div>
+                        <div class="datagrid-content">
+                            <code>{{ settings.network.dhcp_start }} - {{ settings.network.dhcp_end }}</code>
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Boot URL</div>
+                        <div class="datagrid-content">
+                            <code>http://{{ settings.server.ip }}/knetboot/boot.ipxe</code>
+                        </div>
+                    </div>
+                    <div class="datagrid-item">
+                        <div class="datagrid-title">Admin URL</div>
+                        <div class="datagrid-content">
+                            <code>http://{{ settings.server.ip }}/admin/</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="ti ti-bolt me-2"></i>
+                    Quick Actions
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <a href="{{ url_for('images_list') }}" class="list-group-item list-group-item-action">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <span class="avatar bg-primary text-white">
+                                    <i class="ti ti-plus"></i>
+                                </span>
+                            </div>
+                            <div class="col text-truncate">
+                                <div class="text-reset d-block">Add New Image</div>
+                                <div class="text-secondary text-truncate mt-n1">
+                                    Add boot image to the system
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="javascript:void(0)" onclick="regenerateMenus()" class="list-group-item list-group-item-action">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <span class="avatar bg-success text-white">
+                                    <i class="ti ti-reload"></i>
+                                </span>
+                            </div>
+                            <div class="col text-truncate">
+                                <div class="text-reset d-block">Regenerate Menus</div>
+                                <div class="text-secondary text-truncate mt-n1">
+                                    Update iPXE menus from images.yaml
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="{{ url_for('dhcp_config_page') }}" class="list-group-item list-group-item-action">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <span class="avatar bg-warning text-white">
+                                    <i class="ti ti-settings"></i>
+                                </span>
+                            </div>
+                            <div class="col text-truncate">
+                                <div class="text-reset d-block">Configure DHCP</div>
+                                <div class="text-secondary text-truncate mt-n1">
+                                    Manage network and DHCP settings
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                    <a href="{{ url_for('tftp_config_page') }}" class="list-group-item list-group-item-action">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <span class="avatar bg-info text-white">
+                                    <i class="ti ti-upload"></i>
+                                </span>
+                            </div>
+                            <div class="col text-truncate">
+                                <div class="text-reset d-block">Upload Boot Files</div>
+                                <div class="text-secondary text-truncate mt-n1">
+                                    Upload .kpxe or .efi boot files
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
-<style>
-/* Small toggle switch for dashboard */
-.switch-small {
-    position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 20px;
-}
-
-.switch-small input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider-small {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #dc3545;
-    transition: .3s;
-    border-radius: 20px;
-}
-
-.slider-small:before {
-    position: absolute;
-    content: "";
-    height: 14px;
-    width: 14px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: .3s;
-    border-radius: 50%;
-}
-
-input:checked + .slider-small {
-    background-color: #28a745;
-}
-
-input:checked + .slider-small:before {
-    transform: translateX(20px);
-}
-</style>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script>
-function regenerateMenus() {
-    if (!confirm('Regenerate iPXE menus from images.yaml?')) return;
+// Initialize charts on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Disk Usage Chart with real data from df -h
+    const diskUsed = {{ stats.disk_usage.used_gb if stats.disk_usage.used_gb else 0 }};
+    const diskTotal = {{ stats.disk_usage.total_gb if stats.disk_usage.total_gb else 100 }};
 
-    fetch('/api/menus/regenerate', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                alert('Menus regenerated successfully!');
-                location.reload();
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(e => alert('Error: ' + e));
-}
-
-function toggleDHCP(checkbox) {
-    const isEnabled = checkbox.checked;
-    const action = isEnabled ? 'start' : 'stop';
-    const statusText = document.getElementById('dhcpStatusText');
-    const statusDot = statusText.previousElementSibling;
-
-    if (!confirm(`Are you sure you want to ${action.toUpperCase()} the DHCP server?`)) {
-        checkbox.checked = !isEnabled;
-        return;
-    }
-
-    checkbox.disabled = true;
-
-    fetch('{{ url_for("dhcp_toggle") }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ enable: isEnabled })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            if (isEnabled) {
-                statusText.textContent = 'Active';
-                statusDot.classList.remove('service-inactive');
-                statusDot.classList.add('service-active');
-            } else {
-                statusText.textContent = 'Inactive';
-                statusDot.classList.remove('service-active');
-                statusDot.classList.add('service-inactive');
-            }
-            alert(data.message);
-        } else {
-            checkbox.checked = !isEnabled;
-            alert('Error: ' + data.error);
-        }
-    })
-    .catch(error => {
-        checkbox.checked = !isEnabled;
-        alert('Error: ' + error);
-    })
-    .finally(() => {
-        checkbox.disabled = false;
-    });
-}
-
-function toggleTFTP(checkbox) {
-    const isEnabled = checkbox.checked;
-    const action = isEnabled ? 'start' : 'stop';
-    const statusText = document.getElementById('tftpStatusText');
-    const statusDot = statusText.previousElementSibling;
-
-    if (!confirm(`Are you sure you want to ${action.toUpperCase()} the TFTP server?`)) {
-        checkbox.checked = !isEnabled;
-        return;
-    }
-
-    checkbox.disabled = true;
-
-    fetch('{{ url_for("tftp_toggle") }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ enable: isEnabled })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            if (isEnabled) {
-                statusText.textContent = 'Active';
-                statusDot.classList.remove('service-inactive');
-                statusDot.classList.add('service-active');
-            } else {
-                statusText.textContent = 'Inactive';
-                statusDot.classList.remove('service-active');
-                statusDot.classList.add('service-inactive');
-            }
-            alert(data.message);
-        } else {
-            checkbox.checked = !isEnabled;
-            alert('Error: ' + data.error);
-        }
-    })
-    .catch(error => {
-        checkbox.checked = !isEnabled;
-        alert('Error: ' + error);
-    })
-    .finally(() => {
-        checkbox.disabled = false;
-    });
-}
-
-function restartNGINX() {
-    if (!confirm('Restart NGINX server?\n\nNote: The page may reload and reconnect automatically.')) {
-        return;
-    }
-
-    const statusText = document.getElementById('nginxStatusText');
-    const button = event.target.closest('button');
-    button.disabled = true;
-    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
-
-    fetch('{{ url_for("nginx_restart") }}', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('NGINX restarted successfully!');
-            // Wait a moment then reload
-            setTimeout(() => location.reload(), 1000);
-        } else {
-            alert('Error: ' + data.error);
-            button.disabled = false;
-            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
-        }
-    })
-    .catch(error => {
-        // NGINX restart might cause temporary disconnect
-        alert('NGINX restarting... Page will reload.');
-        setTimeout(() => location.reload(), 2000);
-    });
-}
+    createDiskUsageChart('diskUsageChart', diskUsed, diskTotal);
+});
 </script>
 {% endblock %}
