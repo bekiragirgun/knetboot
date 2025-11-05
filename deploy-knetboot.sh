@@ -597,7 +597,7 @@ After=network.target
 Type=simple
 User=www-data
 WorkingDirectory=\$INSTALL_DIR/web
-Environment="PATH=\$INSTALL_DIR/web/venv/bin"
+Environment="PATH=\$INSTALL_DIR/web/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ExecStart=\$INSTALL_DIR/web/venv/bin/gunicorn -w 4 -b 127.0.0.1:5000 app:app
 Restart=always
 RestartSec=5
