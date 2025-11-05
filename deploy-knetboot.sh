@@ -549,6 +549,11 @@ MAINMENU
 ln -sf \$INSTALL_DIR/assets \$WEB_ROOT/assets
 ln -sf \$INSTALL_DIR/config/menus \$WEB_ROOT/menus
 
+# Set permissions for menu files (www-data needs write access for menu editor)
+chown -R www-data:www-data \$INSTALL_DIR/config/menus
+chmod 775 \$INSTALL_DIR/config/menus
+chmod 664 \$INSTALL_DIR/config/menus/*.ipxe 2>/dev/null || true
+
 # 10. Create and enable systemd service
 echo "[10/10] Setting up systemd service..."
 
