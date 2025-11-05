@@ -128,10 +128,17 @@ mkdir -p \$TFTP_ROOT
 # 3. Copy files from /tmp/knetboot
 echo "[3/10] Copying knetboot files..."
 if [ -d "/tmp/knetboot" ]; then
+    # Copy all files (includes web/, templates/, static/, etc.)
     cp -r /tmp/knetboot/* \$INSTALL_DIR/ 2>/dev/null || true
+
+    # Ensure web directory structure exists
+    mkdir -p \$INSTALL_DIR/web/{static/{js,css},templates}
+
     # Fix permissions
     find \$INSTALL_DIR/scripts -name "*.sh" -exec chmod +x {} \;
     find \$INSTALL_DIR/scripts -name "*.py" -exec chmod +x {} \;
+
+    echo "  ✓ Files copied (including web UI updates)"
 fi
 
 # 4. Download iPXE bootloaders
@@ -717,6 +724,16 @@ else
     ((HEALTH_FAILED++))
 fi
 
+# Check API endpoint (menu view)
+echo -n "  - API (menu view endpoint)... "
+if curl -s -m 5 "http://$REMOTE_HOST/admin/api/menus/view/main.ipxe" | grep -q '"success":true'; then
+    echo -e "${GREEN}✓ OK${NC}"
+    ((HEALTH_PASSED++))
+else
+    echo -e "${RED}✗ FAILED${NC}"
+    ((HEALTH_FAILED++))
+fi
+
 # Check TFTP
 echo -n "  - TFTP service... "
 if sshpass -p "$REMOTE_PASS" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" \
@@ -761,9 +778,10 @@ echo "  Password: $REMOTE_PASS"
 echo
 echo -e "${YELLOW}Next Steps:${NC}"
 echo "  1. Access Web UI to see service status"
-echo "  2. Test PXE boot from a client VM"
-echo "  3. Add custom images to /opt/knetboot/config/images.yaml"
-echo "  4. Monitor logs: ssh $REMOTE_USER@$REMOTE_HOST 'sudo journalctl -f'"
+echo "  2. Use iPXE Menu Editor to customize boot menus"
+echo "  3. Test PXE boot from a client VM"
+echo "  4. Add custom images to /opt/knetboot/config/images.yaml"
+echo "  5. Monitor logs: ssh $REMOTE_USER@$REMOTE_HOST 'sudo journalctl -f'"
 echo
 echo -e "${YELLOW}Troubleshooting:${NC}"
 echo "  View DHCP logs: ssh $REMOTE_USER@$REMOTE_HOST 'sudo journalctl -u isc-dhcp-server'"
