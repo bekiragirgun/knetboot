@@ -985,6 +985,34 @@ def api_image_delete(image_id):
     save_images(images)
     return jsonify({'success': True})
 
+@app.route('/api/menus/view/<filename>', methods=['GET'])
+def api_menu_view(filename):
+    """API: View iPXE menu file content"""
+    # Security: Only allow .ipxe files
+    if not filename.endswith('.ipxe'):
+        return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+
+    # Security: Prevent path traversal
+    if '..' in filename or '/' in filename:
+        return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+
+    menus_dir = CONFIG_DIR / 'menus'
+    file_path = menus_dir / filename
+
+    if not file_path.exists():
+        return jsonify({'success': False, 'error': 'File not found'}), 404
+
+    try:
+        with open(file_path, 'r') as f:
+            content = f.read()
+        return jsonify({
+            'success': True,
+            'content': content,
+            'filename': filename
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/menus/edit/<filename>', methods=['POST'])
 def api_menu_save(filename):
     """API: Save iPXE menu file"""
