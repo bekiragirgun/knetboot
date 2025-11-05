@@ -229,20 +229,34 @@ function regenerateMenus() {
 
     showLoading('Regenerating menus...');
 
-    fetch('/api/menus/regenerate', { method: 'POST' })
-        .then(r => r.json())
+    fetch('/api/menus/regenerate', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                return response.text().then(text => {
+                    throw new Error(`HTTP ${response.status}: ${text}`);
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             hideLoading();
             if (data.success) {
                 showToast('Menus regenerated successfully!', 'success');
                 setTimeout(() => location.reload(), 1000);
             } else {
-                showToast(`Error: ${data.error}`, 'error');
+                console.error('Menu regeneration error:', data.error);
+                showToast('Error: ' + (data.error || 'Unknown error'), 'error');
             }
         })
-        .catch(e => {
+        .catch(error => {
             hideLoading();
-            showToast(`Error: ${e}`, 'error');
+            console.error('Fetch error:', error);
+            showToast('Error: ' + error.message, 'error');
         });
 }
 
