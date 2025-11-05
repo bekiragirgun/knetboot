@@ -319,8 +319,24 @@ server {
     server_name _;
     root /var/www/html;
 
-    # iPXE files
-    location ~ \.ipxe\$ {
+    # Web UI (Flask proxy) - Must be FIRST with prefix match to override regex
+    location /admin/ {
+        # Rewrite /admin/* to /* for Flask
+        rewrite ^/admin(/.*)$ \$1 break;
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Prefix /admin;
+    }
+
+    # Web UI root /admin (without trailing slash)
+    location = /admin {
+        return 301 /admin/;
+    }
+
+    # iPXE files (but NOT under /admin)
+    location ~ ^/(?!admin/).*\.ipxe\$ {
         default_type text/plain;
         add_header Cache-Control "no-cache, must-revalidate";
     }
@@ -336,15 +352,11 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    # Web UI (Flask proxy)
-    location /admin {
-        # Rewrite /admin/* to /* for Flask
-        rewrite ^/admin(/.*)$ \$1 break;
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Prefix /admin;
+    # Menu files
+    location /knetboot/menus/ {
+        alias /opt/knetboot/config/menus/;
+        default_type text/plain;
+        access_log /var/log/nginx/knetboot-boot.log combined;
     }
 
     # HTTP Boot - TFTP Alternative (v2.3 Feature)
@@ -356,13 +368,6 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_buffering off;
         add_header Cache-Control "no-cache, must-revalidate";
-        access_log /var/log/nginx/knetboot-boot.log combined;
-    }
-
-    # Menu files
-    location /knetboot/menus/ {
-        alias /opt/knetboot/config/menus/;
-        default_type text/plain;
         access_log /var/log/nginx/knetboot-boot.log combined;
     }
 }
