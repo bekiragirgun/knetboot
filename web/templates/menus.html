@@ -116,7 +116,7 @@
 function viewMenu(menuName) {
     showLoading('Loading menu...');
 
-    fetch('/api/menus/view/' + menuName)
+    fetch('/admin/api/menus/view/' + menuName)
         .then(r => r.json())
         .then(data => {
             hideLoading();

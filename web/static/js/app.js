@@ -141,7 +141,7 @@ function toggleService(serviceName, switchElement) {
     switchElement.disabled = true;
     showLoading(`${action === 'start' ? 'Starting' : 'Stopping'} ${serviceName}...`);
 
-    fetch(`/${serviceName.toLowerCase()}/toggle`, {
+    fetch(`/admin/${serviceName.toLowerCase()}/toggle`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -196,7 +196,7 @@ function restartNGINX(button) {
     const originalHTML = button.innerHTML;
     button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Restarting...';
 
-    fetch('/nginx/restart', {
+    fetch('/admin/nginx/restart', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -229,7 +229,7 @@ function regenerateMenus() {
 
     showLoading('Regenerating menus...');
 
-    fetch('/api/menus/regenerate', {
+    fetch('/admin/api/menus/regenerate', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'

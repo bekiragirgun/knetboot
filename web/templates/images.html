@@ -130,7 +130,7 @@
 function toggleImage(imageId) {
     showLoading('Updating image...');
 
-    fetch('/api/images/' + imageId + '/toggle', {
+    fetch('/admin/api/images/' + imageId + '/toggle', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

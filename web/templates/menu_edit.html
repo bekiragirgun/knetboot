@@ -229,7 +229,7 @@ function saveMenu() {
 
     showLoading('Saving changes...');
 
-    fetch('/api/menus/edit/' + filename, {
+    fetch('/admin/api/menus/edit/' + filename, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
