@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Kapadokya NetBoot{% endblock %}
+
+{% block content %}
+<h1><i class="bi bi-speedometer2"></i> Dashboard</h1>
+<hr>
+
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-md-3 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-disc"></i> Total Images</h5>
+                <h2 class="card-text">{{ stats.total_images }}</h2>
+                <small class="text-muted">{{ stats.enabled_images }} enabled</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-hdd"></i> Disk Usage</h5>
+                <h2 class="card-text">{{ stats.disk_usage }}</h2>
+                <small class="text-muted">Assets directory</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-server"></i> Services Status</h5>
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        DHCP Server
+                        <span class="d-flex align-items-center">
+                            <span class="me-3">
+                                <span class="service-status {% if stats.services.dhcp %}service-active{% else %}service-inactive{% endif %}"></span>
+                                <span id="dhcpStatusText">{% if stats.services.dhcp %}Active{% else %}Inactive{% endif %}</span>
+                            </span>
+                            <label class="switch-small mb-0">
+                                <input type="checkbox" id="dhcpToggle" {% if stats.services.dhcp %}checked{% endif %} onchange="toggleDHCP(this)">
+                                <span class="slider-small"></span>
+                            </label>
+                        </span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        TFTP Server
+                        <span class="d-flex align-items-center">
+                            <span class="me-3">
+                                <span class="service-status {% if stats.services.tftp %}service-active{% else %}service-inactive{% endif %}"></span>
+                                <span id="tftpStatusText">{% if stats.services.tftp %}Active{% else %}Inactive{% endif %}</span>
+                            </span>
+                            <label class="switch-small mb-0">
+                                <input type="checkbox" id="tftpToggle" {% if stats.services.tftp %}checked{% endif %} onchange="toggleTFTP(this)">
+                                <span class="slider-small"></span>
+                            </label>
+                        </span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        NGINX (HTTP)
+                        <span class="d-flex align-items-center">
+                            <span class="me-3">
+                                <span class="service-status {% if stats.services.nginx %}service-active{% else %}service-inactive{% endif %}"></span>
+                                <span id="nginxStatusText">{% if stats.services.nginx %}Active{% else %}Inactive{% endif %}</span>
+                            </span>
+                            <button class="btn btn-sm btn-warning" onclick="restartNGINX()" title="Restart NGINX">
+                                <i class="bi bi-arrow-clockwise"></i>
+                            </button>
+                        </span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        Web UI
+                        <span>
+                            <span class="service-status {% if stats.services.web %}service-active{% else %}service-inactive{% endif %}"></span>
+                            {% if stats.services.web %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Server Info -->
+<div class="row">
+    <div class="col-md-12 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-info-circle"></i> Server Information</h5>
+                <table class="table table-sm">
+                    <tr>
+                        <th>Server IP:</th>
+                        <td>{{ settings.server.ip }}</td>
+                    </tr>
+                    <tr>
+                        <th>Server Name:</th>
+                        <td>{{ settings.server.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Network:</th>
+                        <td>{{ settings.network.subnet }}</td>
+                    </tr>
+                    <tr>
+                        <th>DHCP Range:</th>
+                        <td>{{ settings.network.dhcp_start }} - {{ settings.network.dhcp_end }}</td>
+                    </tr>
+                    <tr>
+                        <th>Boot URL:</th>
+                        <td><code>http://{{ settings.server.ip }}/knetboot/boot.ipxe</code></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-lightning"></i> Quick Actions</h5>
+                <a href="{{ url_for('images_list') }}" class="btn btn-primary me-2">
+                    <i class="bi bi-plus-circle"></i> Add Image
+                </a>
+                <button class="btn btn-success me-2" onclick="regenerateMenus()">
+                    <i class="bi bi-arrow-clockwise"></i> Regenerate Menus
+                </button>
+                <a href="{{ url_for('menus_page') }}" class="btn btn-info me-2">
+                    <i class="bi bi-list-ul"></i> View Menus
+                </a>
+                <a href="{{ url_for('dhcp_config_page') }}" class="btn btn-warning">
+                    <i class="bi bi-gear"></i> DHCP Configuration
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Small toggle switch for dashboard */
+.switch-small {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+}
+
+.switch-small input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider-small {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #dc3545;
+    transition: .3s;
+    border-radius: 20px;
+}
+
+.slider-small:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+}
+
+input:checked + .slider-small {
+    background-color: #28a745;
+}
+
+input:checked + .slider-small:before {
+    transform: translateX(20px);
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function regenerateMenus() {
+    if (!confirm('Regenerate iPXE menus from images.yaml?')) return;
+
+    fetch('/api/menus/regenerate', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('Menus regenerated successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(e => alert('Error: ' + e));
+}
+
+function toggleDHCP(checkbox) {
+    const isEnabled = checkbox.checked;
+    const action = isEnabled ? 'start' : 'stop';
+    const statusText = document.getElementById('dhcpStatusText');
+    const statusDot = statusText.previousElementSibling;
+
+    if (!confirm(`Are you sure you want to ${action.toUpperCase()} the DHCP server?`)) {
+        checkbox.checked = !isEnabled;
+        return;
+    }
+
+    checkbox.disabled = true;
+
+    fetch('{{ url_for("dhcp_toggle") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ enable: isEnabled })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (isEnabled) {
+                statusText.textContent = 'Active';
+                statusDot.classList.remove('service-inactive');
+                statusDot.classList.add('service-active');
+            } else {
+                statusText.textContent = 'Inactive';
+                statusDot.classList.remove('service-active');
+                statusDot.classList.add('service-inactive');
+            }
+            alert(data.message);
+        } else {
+            checkbox.checked = !isEnabled;
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        checkbox.checked = !isEnabled;
+        alert('Error: ' + error);
+    })
+    .finally(() => {
+        checkbox.disabled = false;
+    });
+}
+
+function toggleTFTP(checkbox) {
+    const isEnabled = checkbox.checked;
+    const action = isEnabled ? 'start' : 'stop';
+    const statusText = document.getElementById('tftpStatusText');
+    const statusDot = statusText.previousElementSibling;
+
+    if (!confirm(`Are you sure you want to ${action.toUpperCase()} the TFTP server?`)) {
+        checkbox.checked = !isEnabled;
+        return;
+    }
+
+    checkbox.disabled = true;
+
+    fetch('{{ url_for("tftp_toggle") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ enable: isEnabled })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (isEnabled) {
+                statusText.textContent = 'Active';
+                statusDot.classList.remove('service-inactive');
+                statusDot.classList.add('service-active');
+            } else {
+                statusText.textContent = 'Inactive';
+                statusDot.classList.remove('service-active');
+                statusDot.classList.add('service-inactive');
+            }
+            alert(data.message);
+        } else {
+            checkbox.checked = !isEnabled;
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        checkbox.checked = !isEnabled;
+        alert('Error: ' + error);
+    })
+    .finally(() => {
+        checkbox.disabled = false;
+    });
+}
+
+function restartNGINX() {
+    if (!confirm('Restart NGINX server?\n\nNote: The page may reload and reconnect automatically.')) {
+        return;
+    }
+
+    const statusText = document.getElementById('nginxStatusText');
+    const button = event.target.closest('button');
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+
+    fetch('{{ url_for("nginx_restart") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('NGINX restarted successfully!');
+            // Wait a moment then reload
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert('Error: ' + data.error);
+            button.disabled = false;
+            button.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+        }
+    })
+    .catch(error => {
+        // NGINX restart might cause temporary disconnect
+        alert('NGINX restarting... Page will reload.');
+        setTimeout(() => location.reload(), 2000);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,59 @@
+{
+  "server": {
+    "ip": "192.168.122.20",
+    "name": "knetboot-server",
+    "hostname": "knetboot",
+    "timezone": "Europe/Istanbul",
+    "ntp_server": "192.168.122.10",
+    "ntp_fallback": "time.cloudflare.com, time.google.com"
+  },
+  "network": {
+    "subnet": "192.168.122.0",
+    "netmask": "255.255.255.0",
+    "gateway": "192.168.122.1",
+    "dns_servers": [
+      "192.168.122.10",
+      "192.168.122.1",
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "dns_primary": "192.168.122.10",
+    "dns_secondary": "192.168.122.1",
+    "dns": "192.168.122.1, 8.8.8.8",
+    "dhcp_start": "192.168.122.100",
+    "dhcp_end": "192.168.122.200",
+    "next_server": "192.168.122.20"
+  },
+  "services": {
+    "dhcp": {
+      "enabled": true,
+      "service_name": "isc-dhcp-server",
+      "config_path": "/etc/dhcp/dhcpd.conf"
+    },
+    "tftp": {
+      "enabled": true,
+      "service_name": "tftpd-hpa",
+      "root_path": "/srv/tftp",
+      "config_path": "/etc/default/tftpd-hpa"
+    },
+    "nginx": {
+      "enabled": true,
+      "service_name": "nginx",
+      "config_path": "/etc/nginx/sites-available/knetboot"
+    },
+    "web": {
+      "enabled": true,
+      "service_name": "knetboot-web",
+      "port": 5000
+    }
+  },
+  "paths": {
+    "install_dir": "/opt/knetboot",
+    "config_dir": "/opt/knetboot/config",
+    "web_root": "/var/www/html/knetboot",
+    "tftp_root": "/srv/tftp",
+    "assets_dir": "/opt/knetboot/assets"
+  },
+  "last_updated": "2025-01-05T12:00:00Z",
+  "version": "2.1"
+}

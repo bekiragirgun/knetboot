@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}TFTP Configuration - Kapadokya NetBoot{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <h1>📦 TFTP Configuration</h1>
+    <div class="tftp-service-toggle">
+        <label class="switch">
+            <input type="checkbox" id="tftpServiceToggle" {% if tftp_enabled %}checked{% endif %} onchange="toggleTFTPService(this)">
+            <span class="slider"></span>
+        </label>
+        <span class="ms-2 service-label" id="serviceStatus">
+            {% if tftp_enabled %}
+                <span class="badge bg-success">TFTP ON</span>
+            {% else %}
+                <span class="badge bg-danger">TFTP OFF</span>
+            {% endif %}
+        </span>
+    </div>
+</div>
+
+<hr>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>⚙️ TFTP Server Settings</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('tftp_update') }}">
+                    <div class="mb-3">
+                        <label for="tftp_root" class="form-label">TFTP Root Directory</label>
+                        <input type="text" class="form-control" id="tftp_root" name="tftp_root"
+                               value="{{ config.tftp_root }}" required>
+                        <small class="form-text text-muted">Directory where boot files are served from</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tftp_address" class="form-label">Listen Address</label>
+                        <input type="text" class="form-control" id="tftp_address" name="tftp_address"
+                               value="{{ config.tftp_address }}" placeholder="0.0.0.0">
+                        <small class="form-text text-muted">IP address to listen on (0.0.0.0 for all)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tftp_options" class="form-label">Options</label>
+                        <input type="text" class="form-control" id="tftp_options" name="tftp_options"
+                               value="{{ config.tftp_options }}">
+                        <small class="form-text text-muted">Additional TFTP options (e.g., --secure --verbose)</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Update TFTP Settings
+                    </button>
+                    <a href="{{ url_for('tftp_restart') }}" class="btn btn-warning">
+                        <i class="bi bi-arrow-clockwise"></i> Restart TFTP
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>📁 Boot Files</h5>
+            </div>
+            <div class="card-body">
+                <p>Files in <code>{{ config.tftp_root }}</code>:</p>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>File</th>
+                                <th>Size</th>
+                                <th>Type</th>
+                                <th>Protocol</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for file in boot_files %}
+                            <tr>
+                                <td><code>{{ file.name }}</code></td>
+                                <td><small class="text-muted">{{ file.size }}</small></td>
+                                <td>
+                                    {% if file.type == 'bios' %}
+                                        <span class="badge bg-info">BIOS</span>
+                                    {% elif file.type == 'uefi' %}
+                                        <span class="badge bg-primary">UEFI</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Other</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        <a href="{{ url_for('serve_boot_file', filename=file.name) }}" target="_blank" title="HTTP URL">
+                                            <i class="bi bi-link-45deg"></i> HTTP
+                                        </a>
+                                        /
+                                        <span title="TFTP tftp://{{ request.host.split(':')[0] }}/{{ file.name }}">
+                                            <i class="bi bi-hdd-network"></i> TFTP
+                                        </span>
+                                    </small>
+                                </td>
+                                <td>
+                                    <form method="POST" action="{{ url_for('tftp_delete_file', filename=file.name) }}" style="display: inline;"
+                                          onsubmit="return confirm('Are you sure you want to delete {{ file.name }}?');">
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete file">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted">No boot files found</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Upload Form -->
+                <hr>
+                <h6>📤 Upload Boot File</h6>
+                <form method="POST" action="{{ url_for('tftp_upload') }}" enctype="multipart/form-data">
+                    <div class="mb-2">
+                        <input type="file" class="form-control form-control-sm" name="boot_file" accept=".kpxe,.efi,.pxe,.0,.bin" required>
+                        <small class="form-text text-muted">
+                            Allowed: .kpxe, .efi, .pxe, .0, .bin (max 10MB)
+                        </small>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-success">
+                        <i class="bi bi-upload"></i> Upload File
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>ℹ️ Boot Protocol Options</h5>
+            </div>
+            <div class="card-body">
+                <h6>TFTP (Port 69/UDP)</h6>
+                <p><strong>Service:</strong>
+                    {% if tftp_enabled %}
+                        <span class="badge bg-success">Running</span>
+                    {% else %}
+                        <span class="badge bg-danger">Stopped</span>
+                    {% endif %}
+                </p>
+                <p><strong>Root:</strong> <code>{{ config.tftp_root }}</code></p>
+                <p class="text-muted">Traditional PXE boot protocol. Slower but widely compatible.</p>
+
+                <hr>
+
+                <h6>HTTP (Port 80/TCP)</h6>
+                <p><strong>Service:</strong> <span class="badge bg-success">Always Available</span></p>
+                <p><strong>Base URL:</strong> <code>http://{{ request.host.split(':')[0] }}/boot/http/</code></p>
+                <p class="text-muted mb-0">Faster alternative to TFTP. Use <code>chain http://SERVER/boot/http/filename</code> in iPXE.</p>
+
+                <div class="alert alert-info mt-3 mb-0" role="alert">
+                    <strong>💡 Tip:</strong> HTTP boot is significantly faster than TFTP, especially for large files.
+                    Both protocols serve the same files from <code>{{ config.tftp_root }}</code>.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Toggle switch styles */
+.tftp-service-toggle {
+    display: flex;
+    align-items: center;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #dc3545;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #198754;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+input:disabled + .slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.service-label {
+    font-weight: 500;
+}
+</style>
+
+<script>
+function toggleTFTPService(checkbox) {
+    const isEnabled = checkbox.checked;
+    const action = isEnabled ? 'start' : 'stop';
+    const statusLabel = document.getElementById('serviceStatus');
+
+    if (!confirm(`Are you sure you want to ${action.toUpperCase()} the TFTP server?`)) {
+        checkbox.checked = !isEnabled;
+        return;
+    }
+
+    checkbox.disabled = true;
+
+    fetch(`{{ url_for('tftp_toggle') }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ enable: isEnabled })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (isEnabled) {
+                statusLabel.innerHTML = '<span class="badge bg-success">TFTP ON</span>';
+            } else {
+                statusLabel.innerHTML = '<span class="badge bg-danger">TFTP OFF</span>';
+            }
+            showAlert('success', data.message);
+        } else {
+            checkbox.checked = !isEnabled;
+            showAlert('danger', 'Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        checkbox.checked = !isEnabled;
+        showAlert('danger', 'Error: ' + error);
+    })
+    .finally(() => {
+        checkbox.disabled = false;
+    });
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 5000);
+}
+</script>
+{% endblock %}

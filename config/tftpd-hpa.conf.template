@@ -1,0 +1,155 @@
+# Kapadokya NetBoot - TFTP-HPA Configuration Template
+# File: /etc/default/tftpd-hpa
+#
+# TFTP (Trivial File Transfer Protocol) PXE boot için gerekli basit dosya transfer protokolüdür.
+# iPXE bootloader'ları (undionly.kpxe, ipxe.efi) bu protokol üzerinden client'lara gönderilir.
+
+# =============================================================================
+# TFTP SUNUCU AYARLARI
+# =============================================================================
+
+# TFTP root dizini - tüm dosyalar bu dizinin altında saklanır
+TFTP_USERNAME="tftp"
+TFTP_DIRECTORY="/srv/tftp"
+
+# Dinlenecek adres ve port
+# 0.0.0.0:69 = Tüm interface'lerde dinle
+TFTP_ADDRESS="0.0.0.0:69"
+
+# TFTP seçenekleri
+TFTP_OPTIONS="--secure"
+
+# =============================================================================
+# TFTP OPTIONS AÇIKLAMALARI
+# =============================================================================
+
+# --secure
+#   TFTP root dizini dışına çıkışı engeller (güvenlik)
+#   Mutlaka kullanılmalı!
+
+# --verbose (Debug için)
+#   Detaylı loglama yapar. Production'da kapalı tutun.
+#   Debug için: TFTP_OPTIONS="--secure --verbose"
+
+# --create (Dikkatli kullanın!)
+#   Client'ların dosya oluşturmasına izin verir
+#   PXE boot için GEREKLI DEĞİL, açmayın!
+
+# --timeout <seconds>
+#   İstek timeout süresi (varsayılan: 60 saniye)
+#   Örnek: TFTP_OPTIONS="--secure --timeout 120"
+
+# --retransmit <count>
+#   Yeniden deneme sayısı (varsayılan: 5)
+#   Örnek: TFTP_OPTIONS="--secure --retransmit 10"
+
+# --blocksize <bytes>
+#   Maksimum block boyutu (varsayılan: 512, max: 65464)
+#   Büyük dosyalar için artırılabilir
+#   Örnek: TFTP_OPTIONS="--secure --blocksize 8192"
+
+# --listen (Standalone mode)
+#   inetd/xinetd kullanmadan direkt dinler
+#   Ubuntu'da varsayılan olarak bu modda çalışır
+
+# --map-file <file>
+#   Dosya adı eşleme dosyası
+#   Örnek: Büyük/küçük harf dönüşümleri için
+
+# =============================================================================
+# ÖRNEK YAPILANDIRMALAR
+# =============================================================================
+
+# Minimal (Varsayılan - Önerilen)
+# TFTP_OPTIONS="--secure"
+
+# Debug mode
+# TFTP_OPTIONS="--secure --verbose"
+
+# Yüksek performans (büyük dosyalar için)
+# TFTP_OPTIONS="--secure --blocksize 8192 --timeout 120"
+
+# Çok yavaş ağlar için
+# TFTP_OPTIONS="--secure --timeout 180 --retransmit 10"
+
+# =============================================================================
+# DOSYA YAPILANDIRMASI
+# =============================================================================
+
+# TFTP root dizininde şu dosyalar olmalı:
+# /srv/tftp/
+#   ├── undionly.kpxe    # BIOS/Legacy boot için iPXE
+#   ├── ipxe.efi          # UEFI boot için iPXE
+#   └── (diğer boot dosyaları opsiyonel)
+
+# İzinler:
+# chown -R tftp:tftp /srv/tftp
+# chmod 644 /srv/tftp/*.kpxe /srv/tftp/*.efi
+
+# =============================================================================
+# FIREWALL AYARLARI
+# =============================================================================
+
+# TFTP port 69/UDP kullanır
+# UFW için:
+#   sudo ufw allow 69/udp
+# iptables için:
+#   sudo iptables -A INPUT -p udp --dport 69 -j ACCEPT
+
+# =============================================================================
+# TEST KOMUTLARI
+# =============================================================================
+
+# Local test:
+#   tftp localhost -c get undionly.kpxe /tmp/test.kpxe
+#   file /tmp/test.kpxe
+
+# Remote test:
+#   tftp {{SERVER_IP}} -c get undionly.kpxe /tmp/test.kpxe
+
+# TFTP servis kontrol:
+#   systemctl status tftpd-hpa
+#   journalctl -u tftpd-hpa -f
+
+# Port dinleme kontrolü:
+#   netstat -ulnp | grep :69
+#   ss -ulnp | grep :69
+
+# =============================================================================
+# SORUN GİDERME
+# =============================================================================
+
+# TFTP timeout alıyorsanız:
+# 1. Firewall kontrolü
+# 2. TFTP servis çalışıyor mu?
+# 3. Dosya izinleri doğru mu?
+# 4. SELinux/AppArmor engelliyor mu?
+
+# "Permission denied" hatası:
+#   sudo chown -R tftp:tftp /srv/tftp
+#   sudo chmod 755 /srv/tftp
+#   sudo chmod 644 /srv/tftp/*
+
+# "File not found" hatası:
+#   ls -la /srv/tftp/
+#   # Dosyalar var mı kontrol et
+
+# Verbose logging için:
+#   TFTP_OPTIONS="--secure --verbose"
+#   systemctl restart tftpd-hpa
+#   journalctl -u tftpd-hpa -f
+
+# =============================================================================
+# NOTLAR
+# =============================================================================
+
+# 1. TFTP çok basit bir protokoldür - güvenlik özellikleri yok
+# 2. Sadece boot için kullanın, gerçek dosya transferi için HTTP kullanın
+# 3. iPXE yüklendikten sonra HTTP'ye geçeceği için TFTP yükü minimal
+# 4. Tipik TFTP transfer: ~1MB (iPXE bootloader)
+# 5. Büyük dosyalar (squashfs, ISO) HTTP ile transfer edilmeli
+
+# =============================================================================
+# TEMPLATE DEĞİŞKENLERİ
+# =============================================================================
+# {{SERVER_IP}} = 192.168.122.20

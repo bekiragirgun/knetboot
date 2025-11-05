@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Kapadokya NetBoot{% endblock %}
+
+{% block content %}
+<h1><i class="bi bi-gear"></i> Settings</h1>
+<hr>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Server Configuration</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tr>
+                        <th>Server IP:</th>
+                        <td>{{ settings.server.ip }}</td>
+                    </tr>
+                    <tr>
+                        <th>Server Name:</th>
+                        <td>{{ settings.server.name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Timezone:</th>
+                        <td><span class="badge bg-info">{{ settings.server.timezone or 'UTC' }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>NTP Server:</th>
+                        <td>{{ settings.server.ntp_server or 'Not configured' }}</td>
+                    </tr>
+                    <tr>
+                        <th>NTP Fallback:</th>
+                        <td><small class="text-muted">{{ settings.server.ntp_fallback or 'None' }}</small></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>Network Configuration</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tr>
+                        <th>Subnet:</th>
+                        <td>{{ settings.network.subnet }}</td>
+                    </tr>
+                    <tr>
+                        <th>Netmask:</th>
+                        <td>{{ settings.network.netmask }}</td>
+                    </tr>
+                    <tr>
+                        <th>Gateway:</th>
+                        <td>{{ settings.network.gateway }}</td>
+                    </tr>
+                    <tr>
+                        <th>DNS Primary:</th>
+                        <td>{{ settings.network.dns_primary or settings.network.dns_servers[0] }}</td>
+                    </tr>
+                    <tr>
+                        <th>DNS Secondary:</th>
+                        <td>{{ settings.network.dns_secondary or settings.network.dns_servers[1] if settings.network.dns_servers|length > 1 }}</td>
+                    </tr>
+                    <tr>
+                        <th>All DNS Servers:</th>
+                        <td><small class="text-muted">{{ settings.network.dns_servers|join(', ') if settings.network.dns_servers else settings.network.dns }}</small></td>
+                    </tr>
+                    <tr>
+                        <th>DHCP Range:</th>
+                        <td>{{ settings.network.dhcp_start }} - {{ settings.network.dhcp_end }}</td>
+                    </tr>
+                    <tr>
+                        <th>PXE Server:</th>
+                        <td>{{ settings.network.next_server }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>🌐 DNS Configuration</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('update_dns_settings') }}">
+                    <div class="mb-3">
+                        <label for="dns_primary" class="form-label">Primary DNS Server</label>
+                        <input type="text" class="form-control" id="dns_primary" name="dns_primary"
+                               value="{{ settings.network.dns_primary or settings.network.dns_servers[0] if settings.network.dns_servers else '' }}"
+                               placeholder="192.168.122.1" required>
+                        <small class="form-text text-muted">Primary DNS server IP address</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="dns_secondary" class="form-label">Secondary DNS Server</label>
+                        <input type="text" class="form-control" id="dns_secondary" name="dns_secondary"
+                               value="{{ settings.network.dns_secondary or (settings.network.dns_servers[1] if settings.network.dns_servers|length > 1 else '8.8.8.8') }}"
+                               placeholder="8.8.8.8">
+                        <small class="form-text text-muted">Secondary DNS server IP address (optional)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="dns_tertiary" class="form-label">Tertiary DNS Server</label>
+                        <input type="text" class="form-control" id="dns_tertiary" name="dns_tertiary"
+                               value="{{ settings.network.dns_servers[2] if settings.network.dns_servers|length > 2 else '8.8.4.4' }}"
+                               placeholder="8.8.4.4">
+                        <small class="form-text text-muted">Tertiary DNS server IP address (optional)</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Update DNS Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>⏰ Time & NTP Configuration</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('update_time_settings') }}">
+                    <div class="mb-3">
+                        <label for="timezone" class="form-label">Timezone</label>
+                        <input type="text" class="form-control" id="timezone" name="timezone"
+                               value="{{ settings.server.timezone or 'UTC' }}"
+                               placeholder="Europe/Istanbul">
+                        <small class="form-text text-muted">Linux timezone (e.g., Europe/Istanbul, America/New_York)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ntp_server" class="form-label">NTP Server</label>
+                        <input type="text" class="form-control" id="ntp_server" name="ntp_server"
+                               value="{{ settings.server.ntp_server or '' }}"
+                               placeholder="192.168.122.10">
+                        <small class="form-text text-muted">Primary NTP server IP or hostname</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ntp_fallback" class="form-label">NTP Fallback Servers</label>
+                        <input type="text" class="form-control" id="ntp_fallback" name="ntp_fallback"
+                               value="{{ settings.server.ntp_fallback or '' }}"
+                               placeholder="time.cloudflare.com, time.google.com">
+                        <small class="form-text text-muted">Comma-separated fallback NTP servers</small>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Update Time Settings
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h5>📄 Configuration Files</h5>
+            </div>
+            <div class="card-body">
+                <p>System configuration files:</p>
+                <ul>
+                    <li><code>/opt/knetboot/config/system.json</code> - Central config</li>
+                    <li><code>/opt/knetboot/config/settings.yaml</code> - Legacy settings</li>
+                    <li><code>/opt/knetboot/config/images.yaml</code> - Boot images</li>
+                    <li><code>/etc/dhcp/dhcpd.conf</code> - DHCP server</li>
+                    <li><code>/etc/nginx/sites-available/knetboot</code> - Web server</li>
+                </ul>
+                <p class="text-muted">Restart services after manual edits:</p>
+                <pre class="bg-light p-2">sudo systemctl restart isc-dhcp-server
+sudo systemctl restart nginx
+sudo systemctl restart knetboot-web</pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

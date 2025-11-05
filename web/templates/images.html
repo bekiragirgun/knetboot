@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Images - Kapadokya NetBoot{% endblock %}
+
+{% block content %}
+<h1><i class="bi bi-disc"></i> Images</h1>
+<hr>
+
+<div class="row mb-3">
+    <div class="col-md-12">
+        <button class="btn btn-success me-2" onclick="regenerateMenus()">
+            <i class="bi bi-arrow-clockwise"></i> Regenerate Menus
+        </button>
+        <a href="/images/upload" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add Image (Coming Soon)
+        </a>
+    </div>
+</div>
+
+{% if images %}
+<div class="row">
+    <div class="col-md-12">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for image in images %}
+                <tr id="image-{{ image.id }}">
+                    <td><code>{{ image.id }}</code></td>
+                    <td>
+                        <strong>{{ image.name }}</strong>
+                        {% if image.description %}
+                        <br><small class="text-muted">{{ image.description }}</small>
+                        {% endif %}
+                    </td>
+                    <td><span class="badge bg-secondary">{{ image.category }}</span></td>
+                    <td><span class="badge bg-info">{{ image.type }}</span></td>
+                    <td>{{ image.size | default('N/A') }}</td>
+                    <td>
+                        {% if image.enabled %}
+                        <span class="badge bg-success">Enabled</span>
+                        {% else %}
+                        <span class="badge bg-danger">Disabled</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick="toggleImage('{{ image.id }}')">
+                            <i class="bi bi-toggle-on"></i> Toggle
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteImage('{{ image.id }}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> No images found. Add your first image to get started!
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleImage(imageId) {
+    fetch(`/api/images/${imageId}/toggle`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(e => alert('Error: ' + e));
+}
+
+function deleteImage(imageId) {
+    if (!confirm(`Delete image ${imageId}? This cannot be undone!`)) return;
+
+    fetch(`/api/images/${imageId}`, { method: 'DELETE' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(e => alert('Error: ' + e));
+}
+
+function regenerateMenus() {
+    if (!confirm('Regenerate iPXE menus from images.yaml?')) return;
+
+    fetch('/api/menus/regenerate', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('Menus regenerated successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(e => alert('Error: ' + e));
+}
+</script>
+{% endblock %}

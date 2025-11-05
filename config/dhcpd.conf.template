@@ -1,0 +1,130 @@
+# Kapadokya NetBoot - DHCP Server Configuration Template
+# File: /etc/dhcp/dhcpd.conf
+#
+# Bu dosya PXE boot için optimize edilmiş DHCP yapılandırmasını içerir.
+# Deployment script bu template'i kullanarak otomatik konfigürasyon oluşturur.
+
+# =============================================================================
+# GLOBAL AYARLAR
+# =============================================================================
+
+# Bu DHCP sunucusunun ağın resmi DHCP sunucusu olduğunu belirtir
+# Eğer ağda başka DHCP sunucu varsa, bu satırı kaldırın veya comment out edin
+authoritative;
+
+# Varsayılan ve maksimum lease süreleri (saniye cinsinden)
+default-lease-time 600;        # 10 dakika
+max-lease-time 7200;           # 2 saat
+
+# DNS dinamik güncelleme stili (PXE boot için gerekli değil)
+ddns-update-style none;
+
+# =============================================================================
+# SUBNET TANIMLAMA
+# =============================================================================
+
+# {{NETWORK}} ve {{NETMASK}} deployment script tarafından doldurulur
+subnet {{NETWORK}} netmask {{NETMASK}} {
+
+    # DHCP havuzu - istemcilere dağıtılacak IP aralığı
+    range {{DHCP_START}} {{DHCP_END}};
+
+    # Ağ geçidi (router) adresi
+    option routers {{GATEWAY}};
+
+    # DNS sunucu adresleri
+    option domain-name-servers {{DNS_SERVERS}};
+
+    # Alan adı (domain name)
+    option domain-name "{{DOMAIN_NAME}}";
+
+    # Broadcast adresi (otomatik hesaplanır, ama açıkça belirtilebilir)
+    option broadcast-address {{BROADCAST}};
+
+    # PXE boot için TFTP sunucu adresi
+    next-server {{SERVER_IP}};
+
+    # =============================================================================
+    # PXE BOOT YAPISI - BIOS vs UEFI
+    # =============================================================================
+
+    # iPXE zaten yüklenmişse, direkt HTTP menüye yönlendir
+    if exists user-class and option user-class = "iPXE" {
+        filename "http://{{SERVER_IP}}/knetboot/boot.ipxe";
+    }
+    # UEFI x64 sistemler için (Client System Architecture Type 7 or 9)
+    elsif substring(option vendor-class-identifier, 0, 20) = "PXEClient:Arch:00007" or
+         substring(option vendor-class-identifier, 0, 20) = "PXEClient:Arch:00009" {
+        filename "ipxe.efi";
+    }
+    # BIOS (legacy) sistemler için
+    else {
+        filename "undionly.kpxe";
+    }
+}
+
+# =============================================================================
+# SABİT IP ATAMALARI (Opsiyonel)
+# =============================================================================
+# Belirli MAC adreslerine sabit IP atamak için bu bölümü kullanın
+
+# Örnek: Test client için sabit IP
+# host test-client {
+#     hardware ethernet 52:54:00:12:34:56;
+#     fixed-address 192.168.122.50;
+# }
+
+# Örnek: Production client'lar için
+# host lab-pc-01 {
+#     hardware ethernet 00:11:22:33:44:55;
+#     fixed-address 192.168.122.101;
+# }
+
+# =============================================================================
+# GELİŞMİŞ AYARLAR
+# =============================================================================
+
+# PXE boot için vendor-specific options
+# option space PXE;
+# option PXE.mtftp-ip    code 1 = ip-address;
+# option PXE.mtftp-cport code 2 = unsigned integer 16;
+# option PXE.mtftp-sport code 3 = unsigned integer 16;
+# option PXE.mtftp-tmout code 4 = unsigned integer 8;
+# option PXE.mtftp-delay code 5 = unsigned integer 8;
+
+# =============================================================================
+# ARCH CODES REFERANSI
+# =============================================================================
+# option arch değerleri:
+#   00:00  - Intel x86PC (BIOS)
+#   00:01  - NEC/PC98
+#   00:02  - EFI Itanium
+#   00:03  - DEC Alpha
+#   00:04  - Arc x86
+#   00:05  - Intel Lean Client
+#   00:06  - EFI IA32
+#   00:07  - EFI BC (EFI x86-64)
+#   00:08  - EFI Xscale
+#   00:09  - EFI x86-64
+
+# =============================================================================
+# DEBUG VE LOGLAMa
+# =============================================================================
+# DHCP log seviyesi artırmak için:
+# log-facility local7;
+#
+# Sonra /etc/rsyslog.conf veya /etc/rsyslog.d/dhcp.conf içine:
+# local7.*    /var/log/dhcp.log
+
+# =============================================================================
+# ORNAMENT DEĞERLER (Deployment script tarafından değiştirilecek)
+# =============================================================================
+# {{NETWORK}}       = 192.168.122.0
+# {{NETMASK}}       = 255.255.255.0
+# {{DHCP_START}}    = 192.168.122.100
+# {{DHCP_END}}      = 192.168.122.200
+# {{GATEWAY}}       = 192.168.122.1
+# {{DNS_SERVERS}}   = 192.168.122.1, 8.8.8.8
+# {{DOMAIN_NAME}}   = knetboot.local
+# {{BROADCAST}}     = 192.168.122.255
+# {{SERVER_IP}}     = 192.168.122.20

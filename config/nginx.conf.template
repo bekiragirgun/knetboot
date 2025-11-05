@@ -1,0 +1,217 @@
+# Kapadokya NetBoot - NGINX Configuration Template
+# File: /etc/nginx/sites-available/knetboot
+#
+# Bu dosya knetboot için optimize edilmiş NGINX yapılandırmasını içerir.
+
+server {
+    # =============================================================================
+    # TEMEL SUNUCU AYARLARI
+    # =============================================================================
+
+    listen 80;
+    listen [::]:80;
+    server_name {{SERVER_IP}} {{SERVER_HOSTNAME}} _;
+
+    # Web root dizini
+    root /var/www/html;
+
+    # Varsayılan index dosyaları
+    index index.html index.htm;
+
+    # =============================================================================
+    # iPXE DOSYALARI - Boot Scripts
+    # =============================================================================
+
+    # .ipxe uzantılı dosyalar için özel MIME type ve cache ayarları
+    location ~ \.ipxe$ {
+        # Plain text olarak sun (iPXE bunu parse eder)
+        default_type text/plain;
+
+        # Her zaman server'dan fresh çek (cache'leme)
+        add_header Cache-Control "no-cache, must-revalidate";
+
+        # CORS headers (farklı domainlerden erişim için)
+        add_header Access-Control-Allow-Origin "*";
+
+        # Logging
+        access_log /var/log/nginx/ipxe-access.log combined;
+        error_log /var/log/nginx/ipxe-error.log;
+    }
+
+    # =============================================================================
+    # ASSET DOSYALARI - Kernel, Initrd, Squashfs, ISO
+    # =============================================================================
+
+    location /knetboot/assets/ {
+        # Fiziksel dizin
+        alias /opt/knetboot/assets/;
+
+        # HTTP Range requests desteği (büyük dosyaların parçalı indirilmesi)
+        add_header Accept-Ranges bytes;
+
+        # Performans optimizasyonları
+        sendfile on;              # Kernel seviyesinde dosya transferi
+        tcp_nopush on;            # TCP paketlerini birleştir
+        tcp_nodelay on;           # Nagle algoritmasını devre dışı bırak
+
+        # Cache ayarları (büyük dosyalar için)
+        expires 7d;               # 7 gün browser cache
+        add_header Cache-Control "public, immutable";
+
+        # Büyük dosyalar için timeout artırımı
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+
+        # Dosya boyutu limiti (10GB)
+        client_max_body_size 10G;
+
+        # Directory listing kapalı (güvenlik)
+        autoindex off;
+    }
+
+    # =============================================================================
+    # WEB UI - Flask Admin Panel (Reverse Proxy)
+    # =============================================================================
+
+    location /admin/ {
+        # Flask app 127.0.0.1:5000'de çalışıyor
+        proxy_pass http://127.0.0.1:5000/;
+
+        # Proxy headers (Flask'ın gerçek client bilgisini görmesi için)
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket desteği (gelecekte gerekli olabilir)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Timeout ayarları
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # API endpoint'i de aynı şekilde proxy
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # API için JSON content-type
+        add_header Content-Type application/json;
+    }
+
+    # =============================================================================
+    # HTTP BOOT - TFTP Alternative (Faster!)
+    # =============================================================================
+    # Serve boot files over HTTP instead of TFTP (much faster for large files)
+    # Example usage in iPXE: chain http://SERVER_IP/boot/http/undionly.kpxe
+
+    location /boot/http/ {
+        proxy_pass http://127.0.0.1:5000/boot/http/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # Disable buffering for large file transfers
+        proxy_buffering off;
+
+        # No cache for boot files
+        add_header Cache-Control "no-cache, must-revalidate";
+
+        # Log HTTP boot requests
+        access_log /var/log/nginx/knetboot-boot.log combined;
+    }
+
+    # =============================================================================
+    # MENU DOSYALARI - iPXE Menüler
+    # =============================================================================
+
+    location /knetboot/menus/ {
+        # Fiziksel dizin
+        alias /opt/knetboot/config/menus/;
+
+        # Plain text olarak sun
+        default_type text/plain;
+
+        # Boot logları için özel log dosyası
+        access_log /var/log/nginx/knetboot-boot.log combined;
+
+        # Cache'leme (menüler sık değişmez)
+        add_header Cache-Control "no-cache, must-revalidate";
+    }
+
+    # =============================================================================
+    # GÜVENLİK AYARLARI
+    # =============================================================================
+
+    # Gizli dosyaları serve etme (. ile başlayanlar)
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Yedek dosyaları serve etme
+    location ~ ~$ {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # =============================================================================
+    # PERFORMANS AYARLARI
+    # =============================================================================
+
+    # Gzip sıkıştırma (bandwidth tasarrufu)
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # =============================================================================
+    # ERROR PAGES
+    # =============================================================================
+
+    error_page 404 /404.html;
+    location = /404.html {
+        internal;
+    }
+
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+        internal;
+    }
+}
+
+# =============================================================================
+# HTTPS YAPISI (Opsiyonel - Gelecekte eklenebilir)
+# =============================================================================
+#
+# server {
+#     listen 443 ssl http2;
+#     listen [::]:443 ssl http2;
+#     server_name {{SERVER_HOSTNAME}};
+#
+#     ssl_certificate /etc/ssl/certs/knetboot.crt;
+#     ssl_certificate_key /etc/ssl/private/knetboot.key;
+#
+#     # SSL ayarları
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     ssl_ciphers HIGH:!aNULL:!MD5;
+#     ssl_prefer_server_ciphers on;
+#
+#     # Yukarıdaki location blokları buraya kopyalanır
+# }
+
+# =============================================================================
+# TEMPLATE DEĞİŞKENLERİ
+# =============================================================================
+# {{SERVER_IP}}       = 192.168.122.20
+# {{SERVER_HOSTNAME}} = knetboot.local veya pxeserver
