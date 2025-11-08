@@ -1,7 +1,7 @@
 # Kapadokya NetBoot (knetboot)
 
-**Version:** 2.3.0
-**Status:** Production Ready - Full Web Management + HTTP Boot
+**Version:** 2.4.0
+**Status:** Production Ready - Full Web Management + HTTP Boot + Autoinstall
 
 netboot.xyz'den ilham alınarak tasarlanmış, hibrit PXE network boot sistemi.
 
@@ -14,6 +14,7 @@ netboot.xyz'den ilham alınarak tasarlanmış, hibrit PXE network boot sistemi.
 - ✅ **Çoklu OS**: Ubuntu, Debian, CentOS, Fedora desteği
 - ✅ **Custom Images**: Golden image'lar için destek
 - ✅ **Live Boot**: RAM'de çalışan sistemler
+- ✅ **Autoinstall**: Ubuntu 24.04 Server ve Desktop için otomatik kurulum (cloud-init)
 - ✅ **Bare Metal**: Docker olmadan direkt kurulum
 
 ## Hızlı Başlangıç
@@ -67,7 +68,15 @@ sudo systemctl enable knetboot-web
 ├── config/
 │   ├── images.yaml          # Image database
 │   ├── settings.yaml         # Server config
-│   └── menus/                # iPXE menu files
+│   ├── menus/                # iPXE menu files
+│   └── autoinstall/          # Autoinstall configurations
+│       ├── ubuntu-server/    # Ubuntu 24.04 Server autoinstall
+│       │   ├── user-data     # Cloud-init config
+│       │   └── meta-data     # Cloud-init metadata
+│       ├── ubuntu-desktop/   # Ubuntu 24.04 Desktop autoinstall
+│       │   ├── user-data     # Cloud-init config
+│       │   └── meta-data     # Cloud-init metadata
+│       └── README.md         # Autoinstall documentation
 ├── web/
 │   ├── app.py               # Flask application
 │   ├── templates/           # HTML templates
@@ -85,7 +94,8 @@ sudo systemctl enable knetboot-web
 /var/www/html/knetboot/
 ├── boot.ipxe                # Main entry point
 ├── menus/                   # Symlink → /opt/knetboot/config/menus/
-└── assets/                  # Symlink → /opt/knetboot/assets/
+├── assets/                  # Symlink → /opt/knetboot/assets/
+└── autoinstall/             # Symlink → /opt/knetboot/config/autoinstall/
 
 /srv/tftp/
 ├── undionly.kpxe            # BIOS bootloader
@@ -297,6 +307,13 @@ ls -la /var/www/html/knetboot/
 - ✅ NGINX Restart button (dashboard quick action)
 - ✅ Safe NGINX control (no stop, only restart)
 
+### v2.4 (Tamamlandı)
+- ✅ Ubuntu 24.04 Autoinstall configurations (cloud-init)
+- ✅ Server autoinstall (minimal, with SSH and dev tools)
+- ✅ Desktop autoinstall (minimal, with codecs and drivers)
+- ✅ Pre-configured templates with security defaults
+- ✅ Autoinstall documentation and usage guide
+
 ### Faz 3
 - [ ] Boot statistics (grafik)
 - [ ] Image download progress bar
@@ -304,7 +321,8 @@ ls -la /var/www/html/knetboot/
 - [ ] Automated image download from URL
 
 ### Faz 4
-- [ ] Autoinstall editor (cloud-init)
+- ✅ Autoinstall configurations (cloud-init) - Manuel şablonlar hazır
+- [ ] Autoinstall web editor - Web UI ile düzenleme
 - [ ] REST API
 - [ ] User authentication
 - [ ] Webhook events
@@ -313,11 +331,14 @@ ls -la /var/www/html/knetboot/
 
 - **📖 Konfigürasyon Rehberi**: [CONFIG-GUIDE.md](CONFIG-GUIDE.md) - Detaylı servis ayarları
 - **📝 Deployment Notları**: [DEPLOYMENT-NOTES.md](DEPLOYMENT-NOTES.md) - v2.0 geliştirmeleri
+- **🚀 Autoinstall Rehberi**: [config/autoinstall/README.md](config/autoinstall/README.md) - Ubuntu 24.04 otomatik kurulum
 - **🎨 Design Doc**: `/home/bekir/Projects/kapadokya_scripts/DOCS/plans/2025-11-04-knetboot-design.md`
 - **⚙️ Config Templates**:
   - [config/dhcpd.conf.template](config/dhcpd.conf.template) - DHCP server
   - [config/nginx.conf.template](config/nginx.conf.template) - NGINX
   - [config/tftpd-hpa.conf.template](config/tftpd-hpa.conf.template) - TFTP
+  - [config/autoinstall/ubuntu-server/user-data](config/autoinstall/ubuntu-server/user-data) - Server autoinstall
+  - [config/autoinstall/ubuntu-desktop/user-data](config/autoinstall/ubuntu-desktop/user-data) - Desktop autoinstall
 
 ## Lisans
 
@@ -325,6 +346,6 @@ Kapadokya Üniversitesi - İç kullanım için
 
 ---
 
-**Son Güncelleme:** 2025-11-05
+**Son Güncelleme:** 2025-11-08
 **Yazar:** Bekir
-**Status:** v2.3.0 - Production Ready
+**Status:** v2.4.0 - Production Ready + Autoinstall
